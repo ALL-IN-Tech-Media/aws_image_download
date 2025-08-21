@@ -1,0 +1,19 @@
+{
+    "LambdaConfigurations": [
+        {
+            "Id": "csv-upload-trigger",
+            "LambdaFunctionArn": "arn:aws:lambda:us-east-2:624433616538:function:image-collage-processor",
+            "Events": ["s3:ObjectCreated:*"],
+            "Filter": {
+                "Key": {
+                    "FilterRules": [
+                        {
+                            "Name": "suffix",
+                            "Value": ".csv"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

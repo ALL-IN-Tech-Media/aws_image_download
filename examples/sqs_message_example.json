@@ -1,0 +1,13 @@
+{
+  "processing_type": "csv_data",
+  "csv_data": "creator_name,cover_url,created_at\ntest_creator,https://picsum.photos/300/300,2025-01-19\ntest_creator2,https://picsum.photos/400/400,2025-01-19",
+  "processing_config": {
+    "rows": 5,
+    "cols": 7,
+    "quality": 95,
+    "max_workers": 8,
+    "timeout": 30,
+    "max_retries": 3
+  },
+  "output_prefix": "batch-001/"
+}

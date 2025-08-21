@@ -1,0 +1,47 @@
+# AWS Lambda requirements for TikTok image collage processor
+# Core AWS SDK
+boto3>=1.34.0
+botocore>=1.34.0
+
+# Image processing
+Pillow>=10.0.0
+# numpy>=1.24.0  # Removed for Lambda compatibility
+
+# HTTP requests
+requests>=2.31.0
+
+# System monitoring
+psutil>=5.9.0
+
+# Type hints and utilities
+typing-extensions>=4.8.0
+
+# JSON handling (included in Python but explicit for clarity)
+# json - built-in
+
+# CSV handling (included in Python but explicit for clarity)
+# csv - built-in
+
+# IO operations (included in Python but explicit for clarity)
+# io - built-in
+
+# Logging (included in Python but explicit for clarity)
+# logging - built-in
+
+# OS operations (included in Python but explicit for clarity)
+# os - built-in
+
+# Time operations (included in Python but explicit for clarity)
+# time - built-in
+
+# Datetime operations (included in Python but explicit for clarity)
+# datetime - built-in
+
+# Garbage collection (included in Python but explicit for clarity)
+# gc - built-in
+
+# Concurrent futures (included in Python but explicit for clarity)
+# concurrent.futures - built-in
+
+# Threading (included in Python but explicit for clarity)
+# threading - built-in

@@ -1,0 +1,14 @@
+{
+  "processing_type": "csv_data", 
+  "csv_data": "",
+  "processing_config": {
+    "rows": 10,
+    "cols": 10, 
+    "quality": 85,
+    "max_workers": 16,
+    "timeout": 15,
+    "max_retries": 1,
+    "max_images_per_creator": 100
+  },
+  "output_prefix": "speed-optimized/"
+}
