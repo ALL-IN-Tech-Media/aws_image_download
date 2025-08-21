@@ -1,0 +1,1 @@
+python parallel_processor.py /home/geshuhang/aws_image_download/urls/cover_urls_20250822_010628.csv --method s3 --batch-size 5000 

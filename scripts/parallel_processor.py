@@ -11,7 +11,17 @@ import boto3
 from datetime import datetime
 from typing import List, Dict, Tuple
 import argparse
-
+import logging
+import os
+# Configure logging
+# get absolute path of the folder where this Python file lives
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# point to the "result" folder inside the same directory
+LOG_FILE = os.path.join(BASE_DIR, "logs", "app.log")
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    filename=LOG_FILE,         # log file name
+                    filemode="w")
+logger = logging.getLogger(__name__)
 class ParallelProcessor:
     def __init__(self, region='us-east-2'):
         self.s3 = boto3.client('s3', region_name=region)
@@ -106,13 +116,13 @@ class ParallelProcessor:
         start_time = time.time()
         
         for i, batch in enumerate(batches):
-            batch_name = f"parallel_batch_{timestamp}_{i+1:02d}.csv"
+            batch_name = f"{timestamp}/parallel_batch_{i+1:02d}.csv"
             csv_content = self.create_csv_content(batch)
             
             # Upload to S3 (triggers Lambda automatically)
             self.s3.put_object(
                 Bucket=self.input_bucket,
-                Key=f'csv-files/{batch_name}',
+                Key=f'csv-files/version1/{batch_name}',
                 Body=csv_content
             )
             
@@ -156,7 +166,7 @@ class ParallelProcessor:
                 QueueUrl=self.queue_url,
                 MessageBody=json.dumps(message)
             )
-            
+            logger.info(f'response for batch{i}: {response}')
             message_ids.append(response['MessageId'])
             print(f"✅ Batch {i+1}/{len(batches)}: {len(batch)} images → SQS message sent")
         

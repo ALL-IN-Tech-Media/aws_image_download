@@ -364,7 +364,7 @@ def main():
         limited_data = raw_data#[:limit_number] if len(raw_data) > limit_number else raw_data
         processed_data = process_cover_urls(limited_data)
         if processed_data:
-            csv_path = save_to_csv(processed_data)
+            csv_path = save_to_csv(processed_data, '/home/geshuhang/aws_image_download/urls')
             print(f"✓ Saved to: {csv_path}")
     print()
     
