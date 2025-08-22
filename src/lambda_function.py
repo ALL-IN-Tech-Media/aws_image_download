@@ -6,6 +6,7 @@ Handles both S3 events and SQS messages for processing CSV files containing imag
 import json
 import logging
 import os
+import datetime
 from typing import Dict, Any, List
 import boto3
 from botocore.exceptions import ClientError
@@ -118,9 +119,13 @@ def handle_s3_event(event: Dict[str, Any], image_processor: 'AWSImageProcessor',
                 'max_retries': 3
             }
             
+            # Generate batch ID for tracking and deduplication
+            batch_id = f"s3_{object_key.replace('.csv', '')}_{datetime.datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+            
             result = image_processor.process_csv_data(
                 csv_data=csv_data,
                 output_prefix=f"s3-trigger/{object_key.replace('.csv', '')}/",
+                batch_id=batch_id,
                 **processing_config
             )
             
@@ -245,10 +250,14 @@ def process_csv_from_s3_message(message_body: Dict[str, Any],
     }
     config_defaults.update(processing_config)
     
+    # Generate batch ID for tracking
+    batch_id = f"s3_ref_{object_key.replace('.csv', '')}_{datetime.datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+    
     # Process the CSV data
     return image_processor.process_csv_data(
         csv_data=csv_data,
         output_prefix=output_prefix,
+        batch_id=batch_id,
         **config_defaults
     )
 
@@ -281,10 +290,14 @@ def process_csv_from_message_data(message_body: Dict[str, Any],
     }
     config_defaults.update(processing_config)
     
+    # Generate batch ID for tracking
+    batch_id = f"sqs_data_{datetime.datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+    
     # Process the CSV data
     return image_processor.process_csv_data(
         csv_data=csv_data,
         output_prefix=output_prefix,
+        batch_id=batch_id,
         **config_defaults
     )
 
@@ -304,9 +317,11 @@ def handle_direct_invocation(event: Dict[str, Any], image_processor: 'AWSImagePr
     """
     if 'test_csv_data' in event:
         # Test with provided CSV data
+        batch_id = f"direct_test_{datetime.datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
         result = image_processor.process_csv_data(
             csv_data=event['test_csv_data'],
             output_prefix='direct-test/',
+            batch_id=batch_id,
             group_by_creator=True,
             rows=5,
             cols=7,

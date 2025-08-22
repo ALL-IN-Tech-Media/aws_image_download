@@ -19,6 +19,9 @@ import os
 
 from s3_utils import S3Utils
 from config import Config
+from s3_collision_detector import S3CollisionDetector
+from processing_state import ProcessingState
+from content_hasher import ContentHasher
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +38,19 @@ class AWSImageProcessor:
         self.config = config
         self.s3_utils = S3Utils(config)
         self.results = []
+        
+        # Initialize deduplication components if enabled
+        dedup_config = config.get_deduplication_config()
+        if dedup_config['enable_deduplication']:
+            self.collision_detector = S3CollisionDetector(config)
+            self.processing_state = ProcessingState(config)
+            self.content_hasher = ContentHasher(dedup_config['content_hash_algorithm'])
+            logger.info("Deduplication components initialized")
+        else:
+            self.collision_detector = None
+            self.processing_state = None
+            self.content_hasher = None
+            logger.info("Deduplication disabled")
         
     def download_image_from_url(self, url: str, timeout: int = 30, max_retries: int = 3) -> Optional[Image.Image]:
         """
@@ -350,7 +366,7 @@ class AWSImageProcessor:
                         group_by_creator: bool = True, rows: int = 5, cols: int = 7,
                         max_images_per_creator: Optional[int] = None,
                         max_workers: int = 8, timeout: int = 30, max_retries: int = 3,
-                        quality: int = 95) -> Dict[str, Any]:
+                        quality: int = 95, batch_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Process CSV data and create collages grouped by creator or combined
         
@@ -411,6 +427,8 @@ class AWSImageProcessor:
             if group_by_creator:
                 # Create separate collage for each creator
                 for creator_name, creator_data in data_by_creator.items():
+                    processing_start_time = datetime.datetime.utcnow()
+                    
                     try:
                         logger.info(f"Processing creator: {creator_name} ({len(creator_data)} images)")
                         
@@ -422,11 +440,73 @@ class AWSImageProcessor:
                         # Extract URLs
                         urls = [item['url'] for item in creator_data]
                         
-                        # Generate S3 key
-                        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                        safe_creator_name = "".join(c for c in creator_name if c.isalnum() or c in (' ', '-', '_')).strip()
-                        safe_creator_name = safe_creator_name.replace(' ', '_')
-                        s3_key = f"{output_prefix}collages/{safe_creator_name}_collage_{timestamp}.jpg"
+                        # Check for duplicates if deduplication is enabled
+                        if self.collision_detector and self.processing_state and self.content_hasher:
+                            # Create processing configuration for hashing
+                            processing_config = {
+                                'rows': rows, 'cols': cols, 'quality': quality,
+                                'max_images': max_images_per_creator
+                            }
+                            
+                            # Generate content hash
+                            content_hash = self.content_hasher.generate_creator_hash(
+                                creator_name, urls, processing_config
+                            )
+                            
+                            # Check if already processed
+                            status_check = self.processing_state.check_creator_processed(
+                                creator_name, content_hash
+                            )
+                            
+                            if status_check['processed'] and not self.config.get_deduplication_config().get('force_reprocess', False):
+                                logger.info(f"⏭️ Skipping {creator_name}: {status_check['reason']}")
+                                results["collages_created"].append({
+                                    "creator": creator_name,
+                                    "s3_key": status_check['latest_record'].get('collage_s3_key', ''),
+                                    "s3_url": '',  # Could generate if needed
+                                    "image_count": len(urls),
+                                    "skipped": True,
+                                    "skip_reason": status_check['reason']
+                                })
+                                continue
+                            
+                            # Check S3 collision
+                            skip_decision = self.collision_detector.should_skip_processing(
+                                creator_name, urls, output_prefix, processing_config
+                            )
+                            
+                            if skip_decision['should_skip']:
+                                logger.info(f"⏭️ Skipping {creator_name}: {skip_decision['reason']}")
+                                existing_collage = skip_decision.get('existing_collage', {})
+                                results["collages_created"].append({
+                                    "creator": creator_name,
+                                    "s3_key": existing_collage.get('s3_key', ''),
+                                    "s3_url": '',  # Could generate if needed
+                                    "image_count": len(urls),
+                                    "skipped": True,
+                                    "skip_reason": skip_decision['reason']
+                                })
+                                continue
+                            
+                            # Create processing record
+                            if batch_id:
+                                record_created = self.processing_state.create_processing_record(
+                                    creator_name, batch_id, content_hash, len(urls), processing_config
+                                )
+                                if not record_created:
+                                    logger.warning(f"Could not create processing record for {creator_name}")
+                            
+                            # Generate deterministic S3 key
+                            s3_key = self.collision_detector.generate_deterministic_s3_key(
+                                creator_name, urls, output_prefix, processing_config
+                            )
+                        else:
+                            # Use timestamp-based naming (legacy mode)
+                            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                            safe_creator_name = "".join(c for c in creator_name if c.isalnum() or c in (' ', '-', '_')).strip()
+                            safe_creator_name = safe_creator_name.replace(' ', '_')
+                            s3_key = f"{output_prefix}collages/{safe_creator_name}_collage_{timestamp}.jpg"
+                            content_hash = None
                         
                         # Create collage
                         success = self.create_image_collage_s3(
@@ -435,20 +515,49 @@ class AWSImageProcessor:
                             max_retries=max_retries, quality=quality
                         )
                         
+                        # Calculate processing duration
+                        processing_duration = int((datetime.datetime.utcnow() - processing_start_time).total_seconds() * 1000)
+                        
                         if success:
+                            # Update processing state if deduplication enabled
+                            if self.processing_state and content_hash:
+                                self.processing_state.update_processing_status(
+                                    creator_name, processing_start_time.strftime('%Y-%m-%d'),
+                                    'completed', s3_key, processing_duration
+                                )
+                            
                             s3_url = self.s3_utils.generate_presigned_url(s3_key)
                             results["collages_created"].append({
                                 "creator": creator_name,
                                 "s3_key": s3_key,
                                 "s3_url": s3_url,
-                                "image_count": len(urls)
+                                "image_count": len(urls),
+                                "processing_duration_ms": processing_duration,
+                                "content_hash": content_hash
                             })
                             logger.info(f"✓ Created collage for {creator_name}: {s3_key}")
                         else:
+                            # Update processing state as failed if deduplication enabled
+                            if self.processing_state and content_hash:
+                                self.processing_state.update_processing_status(
+                                    creator_name, processing_start_time.strftime('%Y-%m-%d'),
+                                    'failed', error_message='Collage creation failed'
+                                )
+                            
                             results["failed_creators"].append(creator_name)
                             logger.error(f"✗ Failed to create collage for {creator_name}")
                     
                     except Exception as e:
+                        # Update processing state as failed if deduplication enabled
+                        if self.processing_state:
+                            try:
+                                self.processing_state.update_processing_status(
+                                    creator_name, processing_start_time.strftime('%Y-%m-%d'),
+                                    'failed', error_message=str(e)
+                                )
+                            except:
+                                pass  # Don't fail the main process due to state update issues
+                        
                         logger.error(f"Error processing creator {creator_name}: {e}")
                         results["failed_creators"].append(creator_name)
             

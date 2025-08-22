@@ -339,7 +339,8 @@ resource "aws_iam_role_policy" "lambda_s3_sqs_policy" {
         Effect = "Allow"
         Action = [
           "s3:GetObject",
-          "s3:ListBucket"
+          "s3:ListBucket",
+          "s3:HeadObject"
         ]
         Resource = [
           aws_s3_bucket.input_bucket.arn,
@@ -352,7 +353,9 @@ resource "aws_iam_role_policy" "lambda_s3_sqs_policy" {
           "s3:PutObject",
           "s3:PutObjectAcl",
           "s3:GetObject",
-          "s3:ListBucket"
+          "s3:ListBucket",
+          "s3:HeadObject",
+          "s3:ListObjectsV2"
         ]
         Resource = [
           aws_s3_bucket.output_bucket.arn,
@@ -365,11 +368,26 @@ resource "aws_iam_role_policy" "lambda_s3_sqs_policy" {
           "s3:PutObject",
           "s3:GetObject",
           "s3:DeleteObject",
-          "s3:ListBucket"
+          "s3:ListBucket",
+          "s3:HeadObject"
         ]
         Resource = [
           aws_s3_bucket.temp_bucket.arn,
           "${aws_s3_bucket.temp_bucket.arn}/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:Query",
+          "dynamodb:Scan"
+        ]
+        Resource = [
+          aws_dynamodb_table.creator_processing_state.arn,
+          "${aws_dynamodb_table.creator_processing_state.arn}/index/*"
         ]
       },
       {
@@ -395,6 +413,61 @@ resource "aws_iam_role_policy" "lambda_s3_sqs_policy" {
         Resource = "arn:aws:logs:${local.region}:${local.account_id}:*"
       }
     ]
+  })
+}
+
+#######################
+# DYNAMODB TABLE
+#######################
+
+# Creator processing state table
+resource "aws_dynamodb_table" "creator_processing_state" {
+  name           = "${var.project_name}-creator-processing-state"
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "creator_name"
+  range_key      = "processing_date"
+
+  attribute {
+    name = "creator_name"
+    type = "S"
+  }
+
+  attribute {
+    name = "processing_date"
+    type = "S"
+  }
+
+  attribute {
+    name = "batch_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "status"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "batch-id-index"
+    hash_key        = "batch_id"
+    projection_type = "ALL"
+  }
+
+  global_secondary_index {
+    name            = "status-date-index"
+    hash_key        = "status"
+    range_key       = "processing_date"
+    projection_type = "ALL"
+  }
+
+  ttl {
+    attribute_name = "ttl"
+    enabled        = true
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "Creator Processing State"
+    Type = "State Management"
   })
 }
 
@@ -448,4 +521,14 @@ output "lambda_execution_role_arn" {
 output "lambda_log_group_name" {
   description = "Name of the CloudWatch log group"
   value       = aws_cloudwatch_log_group.lambda_log_group.name
+}
+
+output "dynamodb_table_name" {
+  description = "Name of the DynamoDB creator processing state table"
+  value       = aws_dynamodb_table.creator_processing_state.name
+}
+
+output "dynamodb_table_arn" {
+  description = "ARN of the DynamoDB creator processing state table"
+  value       = aws_dynamodb_table.creator_processing_state.arn
 }

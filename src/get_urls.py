@@ -317,58 +317,25 @@ def save_to_csv(processed_data: List[Dict[str, str]], output_dir: str = None) ->
 
 def main():
     """
-    Main function with example usage and testing scenarios
+    Main function - Extract all URLs from August 21st, 2025
     """
-    # print("=== TikTok Cover URLs Extraction Tool ===")
-    # print()
+    print("=== Extracting URLs from August 21st, 2025 ===")
+    print()
     
-    # # Example 1: Get all URLs from last 30 days
-    # print("Example 1: Getting URLs from last 30 days...")
-    # raw_data = get_cover_urls(date_filter="last_30_days")
-    # if raw_data:
-    #     processed_data = process_cover_urls(raw_data)
-    #     if processed_data:
-    #         csv_path = save_to_csv(processed_data)
-    #         print(f"✓ Saved to: {csv_path}")
-    # print()
-    
-    # # Example 2: Get URLs for specific date range
-    # print("Example 2: Getting URLs for specific date range (2024-01-01 to 2024-01-31)...")
-    # raw_data = get_cover_urls(date_filter=("2024-08-10", "2024-08-18"))
-    # if raw_data:
-    #     processed_data = process_cover_urls(raw_data)
-    #     if processed_data:
-    #         csv_path = save_to_csv(processed_data)
-    #         print(f"✓ Saved to: {csv_path}")
-    # print()
-    
-    # # Example 3: Get URLs for specific creator (last 7 days)
-    # print("Example 3: Getting URLs for specific creator (last 7 days)...")
-    # # Note: Replace 'example_creator' with actual creator name from your database
-    # raw_data = get_cover_urls(date_filter="last_7_days", creator_filter="example_creator")
-    # if raw_data:
-    #     processed_data = process_cover_urls(raw_data)
-    #     if processed_data:
-    #         csv_path = save_to_csv(processed_data)
-    #         print(f"✓ Saved to: {csv_path}")
-    # else:
-    #     print("No data found for this creator")
-    # print()
-    
-    # Example 4: Get all URLs (no filtering) - limited for testing
-    print("Example 4: Getting all URLs (limited to 100 records for testing)...")
-    limit_number = 20
-    raw_data = get_cover_urls()
+    # Get all URLs from August 21st, 2025
+    print("Getting URLs from August 21st, 2025...")
+    raw_data = get_cover_urls(date_filter=("2025-08-21 00:00:00", "2025-08-21 23:59:59"))
     if raw_data:
-        # Limit to first 100 records for testing
-        limited_data = raw_data#[:limit_number] if len(raw_data) > limit_number else raw_data
-        processed_data = process_cover_urls(limited_data)
+        processed_data = process_cover_urls(raw_data)
         if processed_data:
             csv_path = save_to_csv(processed_data, '/home/geshuhang/aws_image_download/urls')
             print(f"✓ Saved to: {csv_path}")
-    print()
+        else:
+            print("No processed data to save")
+    else:
+        print("No data found for August 21st, 2025")
     
-    # print("=== Extraction Complete ===")
+    print("=== Extraction Complete ===")
 
 if __name__ == "__main__":
     main()

@@ -24,6 +24,17 @@ class Config:
         self.SQS_QUEUE_URL = self._get_env_var('SQS_QUEUE_URL')
         self.SQS_DLQ_URL = self._get_env_var('SQS_DLQ_URL')
         
+        # DynamoDB Configuration
+        self.DYNAMODB_TABLE_NAME = self._get_env_var('DYNAMODB_TABLE_NAME', 'tiktok-creator-processing-state')
+        
+        # Deduplication Configuration
+        self.ENABLE_DEDUPLICATION = self._get_bool_env_var('ENABLE_DEDUPLICATION', True)
+        self.COLLISION_CHECK_ENABLED = self._get_bool_env_var('COLLISION_CHECK_ENABLED', True)
+        self.CONTENT_HASH_ALGORITHM = self._get_env_var('CONTENT_HASH_ALGORITHM', 'sha256')
+        self.BATCH_COORDINATION_ENABLED = self._get_bool_env_var('BATCH_COORDINATION_ENABLED', True)
+        self.FORCE_REPROCESS = self._get_bool_env_var('FORCE_REPROCESS', False)
+        self.CREATOR_BATCH_ASSIGNMENT_ENABLED = self._get_bool_env_var('CREATOR_BATCH_ASSIGNMENT_ENABLED', True)
+        
         # AWS Region (AWS_REGION is reserved in Lambda, use AWS_DEFAULT_REGION)
         self.AWS_REGION = self._get_env_var('AWS_DEFAULT_REGION', os.environ.get('AWS_REGION', 'us-east-2'))
         
@@ -210,6 +221,34 @@ class Config:
         return {
             'queue_url': self.SQS_QUEUE_URL,
             'dlq_url': self.SQS_DLQ_URL
+        }
+    
+    def get_dynamodb_config(self) -> Dict[str, Any]:
+        """
+        Get DynamoDB configuration
+        
+        Returns:
+            Dictionary with DynamoDB configuration parameters
+        """
+        return {
+            'table_name': self.DYNAMODB_TABLE_NAME,
+            'aws_region': self.AWS_REGION
+        }
+    
+    def get_deduplication_config(self) -> Dict[str, Any]:
+        """
+        Get deduplication configuration
+        
+        Returns:
+            Dictionary with deduplication configuration parameters
+        """
+        return {
+            'enable_deduplication': self.ENABLE_DEDUPLICATION,
+            'collision_check_enabled': self.COLLISION_CHECK_ENABLED,
+            'content_hash_algorithm': self.CONTENT_HASH_ALGORITHM,
+            'batch_coordination_enabled': self.BATCH_COORDINATION_ENABLED,
+            'force_reprocess': self.FORCE_REPROCESS,
+            'creator_batch_assignment_enabled': self.CREATOR_BATCH_ASSIGNMENT_ENABLED
         }
     
     def get_image_processing_config(self) -> Dict[str, Any]:

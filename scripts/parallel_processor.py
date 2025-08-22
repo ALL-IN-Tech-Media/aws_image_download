@@ -8,11 +8,17 @@ import csv
 import json
 import time
 import boto3
+import sys
+import os
 from datetime import datetime
 from typing import List, Dict, Tuple
 import argparse
 import logging
-import os
+
+# Add src directory to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src'))
+
+from creator_registry import CreatorBatchManager
 # Configure logging
 # get absolute path of the folder where this Python file lives
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -23,12 +29,21 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
                     filemode="w")
 logger = logging.getLogger(__name__)
 class ParallelProcessor:
-    def __init__(self, region='us-east-2'):
+    def __init__(self, region='us-east-2', enable_deduplication=True):
         self.s3 = boto3.client('s3', region_name=region)
         self.sqs = boto3.client('sqs', region_name=region)
         self.region = region
         self.input_bucket = 'tiktok-image-input'
         self.queue_url = f"https://sqs.{region}.amazonaws.com/624433616538/tiktok-image-processing-queue"
+        self.enable_deduplication = enable_deduplication
+        
+        # Initialize creator batch manager for deduplication
+        if self.enable_deduplication:
+            self.batch_manager = CreatorBatchManager()
+            logger.info("Deduplication enabled - using CreatorBatchManager")
+        else:
+            self.batch_manager = None
+            logger.info("Deduplication disabled - using legacy batching")
         
     def analyze_csv(self, csv_file: str) -> Dict[str, int]:
         """Analyze CSV to understand creator distribution."""
@@ -45,49 +60,82 @@ class ParallelProcessor:
         
         return creators, total_images
     
-    def create_balanced_batches(self, csv_file: str, target_batch_size: int = 100) -> List[List[str]]:
-        """Create balanced batches for parallel processing."""
+    def create_balanced_batches(self, csv_file: str, target_batch_size: int = 100) -> List[List[Dict]]:
+        """Create balanced batches for parallel processing with deduplication support."""
         creators, total_images = self.analyze_csv(csv_file)
         
         print(f"📊 Analysis: {len(creators)} creators, {total_images} images")
         
-        # Read all rows
-        all_rows = []
+        # Read all rows and group by creator
+        creator_groups = {}
         with open(csv_file, 'r') as f:
             reader = csv.DictReader(f)
             for row in reader:
                 if row['cover_url'].strip():
-                    all_rows.append(row)
+                    creator = row['creator_name']
+                    if creator not in creator_groups:
+                        creator_groups[creator] = []
+                    creator_groups[creator].append(row)
         
-        # Group by creator
-        creator_groups = {}
-        for row in all_rows:
-            creator = row['creator_name']
-            if creator not in creator_groups:
-                creator_groups[creator] = []
-            creator_groups[creator].append(row)
-        
-        # Create balanced batches
-        batches = []
-        current_batch = []
-        current_size = 0
-        
-        # Sort creators by size (largest first for better balancing)
-        sorted_creators = sorted(creator_groups.items(), key=lambda x: len(x[1]), reverse=True)
-        
-        for creator, rows in sorted_creators:
-            if current_size + len(rows) > target_batch_size and current_batch:
-                # Start new batch
-                batches.append(current_batch)
-                current_batch = []
-                current_size = 0
+        if self.enable_deduplication and self.batch_manager:
+            # Use creator-centric batching to prevent duplicates
+            print("🔧 Using creator-centric batching for deduplication")
             
-            current_batch.extend(rows)
-            current_size += len(rows)
+            # Convert to URL format for batch manager
+            creators_data = {}
+            for creator, rows in creator_groups.items():
+                creators_data[creator] = [row['cover_url'] for row in rows]
+            
+            # Create balanced creator batches
+            creator_batches = self.batch_manager.create_balanced_creator_batches(
+                creators_data, target_batch_size
+            )
+            
+            # Validate no duplicate creators
+            validation = self.batch_manager.validate_no_duplicate_creators(creator_batches)
+            if not validation['valid']:
+                logger.error(f"Batch validation failed: {validation}")
+                raise ValueError(f"Duplicate creators found: {validation['duplicate_creators']}")
+            
+            # Convert back to row format
+            batches = []
+            for creator_batch in creator_batches:
+                batch_rows = []
+                for creator, urls in creator_batch.items():
+                    # Get original rows for this creator
+                    creator_rows = creator_groups[creator]
+                    batch_rows.extend(creator_rows)
+                batches.append(batch_rows)
+            
+            print(f"✅ Created {len(batches)} deduplication-safe batches")
+            
+        else:
+            # Use legacy batching (may create duplicates)
+            print("⚠️  Using legacy batching - duplicates possible")
+            
+            batches = []
+            current_batch = []
+            current_size = 0
+            
+            # Sort creators by size (largest first for better balancing)
+            sorted_creators = sorted(creator_groups.items(), key=lambda x: len(x[1]), reverse=True)
+            
+            for creator, rows in sorted_creators:
+                if current_size + len(rows) > target_batch_size and current_batch:
+                    # Start new batch
+                    batches.append(current_batch)
+                    current_batch = []
+                    current_size = 0
+                
+                current_batch.extend(rows)
+                current_size += len(rows)
+            
+            # Add final batch
+            if current_batch:
+                batches.append(current_batch)
         
-        # Add final batch
-        if current_batch:
-            batches.append(current_batch)
+        # Log batch statistics
+        self._log_final_batch_stats(batches, target_batch_size)
         
         return batches
     
@@ -176,6 +224,30 @@ class ParallelProcessor:
         
         return message_ids
     
+    def _log_final_batch_stats(self, batches: List[List[Dict]], target_batch_size: int):
+        """Log final statistics about created batches."""
+        if not batches:
+            print("⚠️  No batches created")
+            return
+        
+        batch_sizes = [len(batch) for batch in batches]
+        total_images = sum(batch_sizes)
+        avg_batch_size = total_images / len(batches)
+        
+        print(f"📈 Final Batch Statistics:")
+        print(f"   Total batches: {len(batches)}")
+        print(f"   Total images: {total_images}")
+        print(f"   Average batch size: {avg_batch_size:.1f}")
+        print(f"   Min/Max batch size: {min(batch_sizes)}/{max(batch_sizes)}")
+        print(f"   Target batch size: {target_batch_size}")
+        
+        # Check for batch balance
+        size_variance = max(batch_sizes) - min(batch_sizes)
+        if size_variance > target_batch_size * 0.5:
+            print(f"⚠️  High batch size variance: {size_variance}")
+        else:
+            print(f"✅ Good batch balance (variance: {size_variance})")
+    
     def monitor_processing(self, batch_count: int, method: str = "s3"):
         """Monitor parallel processing completion."""
         print(f"\n📊 Monitoring {batch_count} parallel {method.upper()} processes...")
@@ -195,7 +267,7 @@ class ParallelProcessor:
             print(f"   s3://tiktok-image-output/sqs-trigger/parallel_sqs_*/")
 
 def main():
-    parser = argparse.ArgumentParser(description='Parallel TikTok image processor')
+    parser = argparse.ArgumentParser(description='Parallel TikTok image processor with deduplication')
     parser.add_argument('csv_file', help='CSV file to process')
     parser.add_argument('--method', choices=['s3', 'sqs'], default='s3', 
                        help='Processing method (s3=automatic, sqs=manual)')
@@ -203,13 +275,21 @@ def main():
                        help='Images per batch (default: 100)')
     parser.add_argument('--region', default='us-east-2',
                        help='AWS region (default: us-east-2)')
+    parser.add_argument('--disable-deduplication', action='store_true',
+                       help='Disable deduplication (may create duplicate collages)')
     
     args = parser.parse_args()
     
-    processor = ParallelProcessor(region=args.region)
+    enable_deduplication = not args.disable_deduplication
+    processor = ParallelProcessor(region=args.region, enable_deduplication=enable_deduplication)
     
     print("🚀 PARALLEL PROCESSING STARTED")
     print("=" * 50)
+    
+    if enable_deduplication:
+        print("🔒 DEDUPLICATION ENABLED - No duplicate collages will be created")
+    else:
+        print("⚠️  DEDUPLICATION DISABLED - Duplicate collages may be created")
     
     if args.method == 's3':
         uploaded_files = processor.process_parallel_s3(args.csv_file, args.batch_size)
