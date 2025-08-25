@@ -130,7 +130,7 @@ def get_cover_urls(date_filter: Union[str, Tuple[str, str], None] = None,
         creator_filter: Creator name(s) to filter by
     
     Returns:
-        List of dictionaries with creator_name, cover_urls, created_at
+        List of dictionaries with creator_name, cover_urls, updated_at
     """
     connection = connect_to_database()
     if not connection:
@@ -138,14 +138,14 @@ def get_cover_urls(date_filter: Union[str, Tuple[str, str], None] = None,
     
     try:
         # Build SQL query with WHERE clauses
-        base_query = f"SELECT creator_name, cover_urls, created_at FROM {DB_TABLE}"
+        base_query = f"SELECT creator_name, cover_urls, updated_at FROM {DB_TABLE}"
         where_clauses = []
         params = {}
         
         # Add date filtering
         start_date, end_date = parse_date_filter(date_filter)
         if start_date and end_date:
-            where_clauses.append("created_at BETWEEN :start_date AND :end_date")
+            where_clauses.append("updated_at BETWEEN :start_date AND :end_date")
             params.update({"start_date": start_date, "end_date": end_date})
             print(f"Filtering by date range: {start_date} to {end_date}")
         
@@ -170,7 +170,7 @@ def get_cover_urls(date_filter: Union[str, Tuple[str, str], None] = None,
             query = base_query
         
         # Add ORDER BY for consistent results
-        query += " ORDER BY created_at DESC"
+        query += " ORDER BY updated_at DESC"
         
         print(f"Executing query: {query}")
         print(f"With parameters: {params}")
@@ -185,7 +185,7 @@ def get_cover_urls(date_filter: Union[str, Tuple[str, str], None] = None,
             results.append({
                 "creator_name": row.creator_name,
                 "cover_urls": row.cover_urls,
-                "created_at": row.created_at
+                "updated_at": row.updated_at
             })
         
         print(f"Found {len(results)} records")
@@ -214,14 +214,14 @@ def process_cover_urls(raw_data: List[Dict[str, Any]]) -> List[Dict[str, str]]:
     for record in raw_data:
         creator_name = record.get('creator_name', '')
         cover_urls_json = record.get('cover_urls', '')
-        created_at = record.get('created_at', '')
+        updated_at = record.get('updated_at', '')
         
         # Format date for CSV
-        if created_at:
-            if isinstance(created_at, datetime.datetime):
-                formatted_date = created_at.strftime("%Y-%m-%d %H:%M:%S")
+        if updated_at:
+            if isinstance(updated_at, datetime.datetime):
+                formatted_date = updated_at.strftime("%Y-%m-%d %H:%M:%S")
             else:
-                formatted_date = str(created_at)
+                formatted_date = str(updated_at)
         else:
             formatted_date = ''
         
@@ -240,21 +240,21 @@ def process_cover_urls(raw_data: List[Dict[str, Any]]) -> List[Dict[str, str]]:
                             processed_data.append({
                                 'creator_name': creator_name,
                                 'cover_url': url,
-                                'created_at': formatted_date
+                                'updated_at': formatted_date
                             })
                 else:
                     # Handle case where it's a single URL (unlikely but possible)
                     processed_data.append({
                         'creator_name': creator_name,
                         'cover_url': str(cover_urls),
-                        'created_at': formatted_date
+                        'updated_at': formatted_date
                     })
             else:
                 # No cover URLs, add record with empty URL
                 processed_data.append({
                     'creator_name': creator_name,
                     'cover_url': '',
-                    'created_at': formatted_date
+                    'updated_at': formatted_date
                 })
                 
         except (json.JSONDecodeError, TypeError) as e:
@@ -263,7 +263,7 @@ def process_cover_urls(raw_data: List[Dict[str, Any]]) -> List[Dict[str, str]]:
             processed_data.append({
                 'creator_name': creator_name,
                 'cover_url': f'ERROR: {str(e)}',
-                'created_at': formatted_date
+                'updated_at': formatted_date
             })
     
     print(f"Processed {len(processed_data)} URL records from {len(raw_data)} database records")
@@ -299,7 +299,7 @@ def save_to_csv(processed_data: List[Dict[str, str]], output_dir: str = None) ->
     
     try:
         with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
-            fieldnames = ['creator_name', 'cover_url', 'created_at']
+            fieldnames = ['creator_name', 'cover_url', 'updated_at']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             
             # Write header
@@ -324,7 +324,7 @@ def main():
     
     # Get all URLs from August 21st, 2025
     print("Getting URLs from August 21st, 2025...")
-    raw_data = get_cover_urls(date_filter=("2025-08-21 00:00:00", "2025-08-21 23:59:59"))
+    raw_data = get_cover_urls(date_filter=("2025-08-24 00:00:00", "2025-08-24 23:59:59"))
     if raw_data:
         processed_data = process_cover_urls(raw_data)
         if processed_data:

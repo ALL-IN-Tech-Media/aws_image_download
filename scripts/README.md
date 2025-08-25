@@ -85,7 +85,7 @@ split -l 36 data_only.csv batch_
 # Add header back to each batch
 for file in batch_*; do
     # Create temporary file with header
-    echo "creator_name,cover_url,created_at" > temp_${file}.csv
+    echo "creator_name,cover_url,updated_at" > temp_${file}.csv
     cat "$file" >> temp_${file}.csv
     mv temp_${file}.csv ${file}.csv
     rm "$file"  # Remove the original split file
@@ -198,13 +198,13 @@ For your specific data, split by individual creators:
 
 ```bash
 # Create one batch per creator (11 batches total)
-echo "creator_name,cover_url,created_at" > aaliahmaddox.csv
+echo "creator_name,cover_url,updated_at" > aaliahmaddox.csv
 grep "^aaliahmaddox," cover_urls_20250819_104209.csv >> aaliahmaddox.csv
 
-echo "creator_name,cover_url,created_at" > aal.i.jah.csv  
+echo "creator_name,cover_url,updated_at" > aal.i.jah.csv  
 grep "^aal\.i\.jah," cover_urls_20250819_104209.csv >> aal.i.jah.csv
 
-echo "creator_name,cover_url,created_at" > aabjj81.csv
+echo "creator_name,cover_url,updated_at" > aabjj81.csv
 grep "^aabjj81," cover_urls_20250819_104209.csv >> aabjj81.csv
 
 # ... repeat for all 11 creators
@@ -342,7 +342,7 @@ split -l 91 temp_data.csv batch_
 
 # Add headers to each batch
 for file in batch_*; do
-    echo "creator_name,cover_url,created_at" > ${file}.csv
+    echo "creator_name,cover_url,updated_at" > ${file}.csv
     cat "$file" >> ${file}.csv
     rm "$file"
 done
@@ -392,7 +392,7 @@ split -l 36 temp_data.csv batch_
 batch_num=1
 for file in batch_*; do
     printf -v batch_name "batch_%02d.csv" $batch_num
-    echo "creator_name,cover_url,created_at" > "$batch_name"
+    echo "creator_name,cover_url,updated_at" > "$batch_name"
     cat "$file" >> "$batch_name"
     rm "$file"
     ((batch_num++))
@@ -433,7 +433,7 @@ echo "=== CREATING CREATOR-BASED BATCHES ==="
 creators=("aaliahmaddox" "aal.i.jah" "aabjj81" "aaasisisiyou" "aaaer723" "aaliyah_garcia18" "aali.zm" "aalaysia_00" "aakritisubedi5" "aakritisadashanker" "aak9649")
 
 for creator in "${creators[@]}"; do
-    echo "creator_name,cover_url,created_at" > ${creator}.csv
+    echo "creator_name,cover_url,updated_at" > ${creator}.csv
     grep "^${creator}," cover_urls_20250819_104209.csv >> ${creator}.csv
     image_count=$(( $(wc -l < ${creator}.csv) - 1 ))
     echo "✅ ${creator}.csv: ${image_count} images"

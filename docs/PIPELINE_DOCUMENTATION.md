@@ -18,7 +18,7 @@ This project creates a scalable AWS-based pipeline for processing TikTok image U
 3. **URL Processing**: Parses JSON-formatted cover URLs from database records
 4. **CSV Generation**: Creates structured CSV files with format:
    ```
-   creator_name,cover_url,created_at
+   creator_name,cover_url,updated_at
    aaliahmaddox,https://tiktokcdn-us.com/...,2025-01-19 12:00:00
    ```
 

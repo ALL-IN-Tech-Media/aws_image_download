@@ -145,11 +145,10 @@ class ParallelProcessor:
             return ""
         
         # Create CSV content
-        fieldnames = ['creator_name', 'cover_url', 'created_at']
-        csv_lines = ['creator_name,cover_url,created_at']
+        csv_lines = ['creator_name,cover_url,updated_at']
         
         for row in rows:
-            csv_lines.append(f"{row['creator_name']},{row['cover_url']},{row['created_at']}")
+            csv_lines.append(f"{row['creator_name']},{row['cover_url']},{row['updated_at']}")
         
         return '\n'.join(csv_lines)
     

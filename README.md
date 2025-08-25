@@ -200,7 +200,7 @@ aws sqs send-message \
   --queue-url "https://sqs.us-east-2.amazonaws.com/YOUR-ACCOUNT-ID/tiktok-image-processing-queue" \
   --message-body '{
     "processing_type": "csv_data",
-    "csv_data": "creator_name,cover_url,created_at\ntest_creator,https://picsum.photos/300/300,2025-01-19",
+    "csv_data": "creator_name,cover_url,updated_at\ntest_creator,https://picsum.photos/300/300,2025-01-19",
     "processing_config": {
       "rows": 5,
       "cols": 7,
@@ -228,14 +228,14 @@ aws s3 cp cover_urls_$(date +%Y%m%d_%H%M%S).csv s3://tiktok-image-input/csv-file
 Your CSV files must follow this format:
 
 ```csv
-creator_name,cover_url,created_at
+creator_name,cover_url,updated_at
 alice_creator,https://example.com/image1.jpg,2025-01-19
 alice_creator,https://example.com/image2.jpg,2025-01-19
 bob_creator,https://example.com/image3.jpg,2025-01-19
 ```
 
 **Requirements:**
-- Header row: `creator_name,cover_url,created_at`
+- Header row: `creator_name,cover_url,updated_at`
 - Valid image URLs (JPEG, PNG, WebP supported)
 - Creator names will be used for output file naming
 

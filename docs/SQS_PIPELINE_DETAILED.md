@@ -103,7 +103,7 @@ The SQS pipeline supports two distinct message types for different processing sc
 ```json
 {
   "processing_type": "csv_data",
-  "csv_data": "creator_name,cover_url,created_at\nuser1,https://example.com/image1.jpg,2025-08-22\nuser2,https://example.com/image2.jpg,2025-08-22",
+  "csv_data": "creator_name,cover_url,updated_at\nuser1,https://example.com/image1.jpg,2025-08-22\nuser2,https://example.com/image2.jpg,2025-08-22",
   "processing_config": {
     "group_by_creator": true,
     "rows": 5,
@@ -666,7 +666,7 @@ from datetime import datetime
 
 def send_direct_csv_message():
     # Small CSV data
-    csv_data = """creator_name,cover_url,created_at
+    csv_data = """creator_name,cover_url,updated_at
 user1,https://example.com/image1.jpg,2025-08-22
 user2,https://example.com/image2.jpg,2025-08-22
 user3,https://example.com/image3.jpg,2025-08-22"""

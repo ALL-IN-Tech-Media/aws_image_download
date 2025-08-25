@@ -3,15 +3,15 @@ import os
 
 def remove_duplicates(csv_files_list, target_csv_file, output_file=None):
     """
-    Remove duplicate rows from target_csv_file that appear in any of the csv_files_list
+    Remove duplicate rows from target_csv_file based on creator_name that appear in any of the csv_files_list
     
     Args:
-        csv_files_list: List of CSV file paths to check for duplicates
+        csv_files_list: List of CSV file paths to check for existing creator names
         target_csv_file: CSV file to remove duplicates from
         output_file: Optional output file path (defaults to overwriting target_csv_file)
     """
-    # Read all rows from the CSV files list into a set for fast lookup
-    existing_rows = set()
+    # Read all creator names from the CSV files list into a set for fast lookup
+    existing_creator_names = set()
     
     for csv_file in csv_files_list:
         if os.path.exists(csv_file):
@@ -19,7 +19,8 @@ def remove_duplicates(csv_files_list, target_csv_file, output_file=None):
                 reader = csv.reader(f)
                 next(reader, None)  # Skip header
                 for row in reader:
-                    existing_rows.add(tuple(row))
+                    if row:  # Check if row is not empty
+                        existing_creator_names.add(row[0])  # Add creator_name (first column)
     
     # Read target CSV and keep only unique rows
     unique_rows = []
@@ -30,7 +31,7 @@ def remove_duplicates(csv_files_list, target_csv_file, output_file=None):
         header = next(reader, None)  # Save header
         
         for row in reader:
-            if tuple(row) not in existing_rows:
+            if row and row[0] not in existing_creator_names:  # Check creator_name (first column)
                 unique_rows.append(row)
     
     # Write deduplicated data
@@ -42,11 +43,12 @@ def remove_duplicates(csv_files_list, target_csv_file, output_file=None):
             writer.writerow(header)
         writer.writerows(unique_rows)
     
-    print(f"Removed {len(existing_rows)} duplicate rows. Saved {len(unique_rows)} unique rows to: {output_path}")
+    print(f"Found {len(existing_creator_names)} existing creator names. Saved {len(unique_rows)} unique rows to: {output_path}")
 
 if __name__=='__main__':
     # # Remove duplicates and save to new file
     # remove_duplicates(['file1.csv', 'file2.csv'], 'target.csv', 'clean_output.csv')
 
     # Remove duplicates and overwrite target file
-    remove_duplicates(['/home/geshuhang/aws_image_download/urls/cover_urls_20250822_010628.csv'], '/home/geshuhang/aws_image_download/urls/cover_urls_20250823_035447.csv')
+    remove_duplicates(['/home/geshuhang/aws_image_download/urls/cover_urls_20250822_010628.csv','/home/geshuhang/aws_image_download/urls/cover_urls_20250823_035447.csv'], \
+        '/home/geshuhang/aws_image_download/urls/cover_urls_20250824_121351.csv')

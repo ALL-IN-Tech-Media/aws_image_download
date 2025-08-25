@@ -1,4 +1,4 @@
-creator_name,cover_url,created_at
+creator_name,cover_url,updated_at
 test_creator1,https://picsum.photos/400/400,2025-01-19
 test_creator1,https://picsum.photos/450/450,2025-01-19
 test_creator2,https://picsum.photos/500/500,2025-01-19

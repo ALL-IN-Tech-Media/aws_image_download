@@ -1,0 +1,1 @@
+aws s3 ls s3://tiktok-image-output/s3-trigger/csv-files/ --recursive | awk '{print $4}' | grep -E '\.(jpg|jpeg|png|gif|webp)$' | sed 's/.*\.//' | sort | uniq -c

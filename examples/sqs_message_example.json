@@ -1,6 +1,6 @@
 {
   "processing_type": "csv_data",
-  "csv_data": "creator_name,cover_url,created_at\ntest_creator,https://picsum.photos/300/300,2025-01-19\ntest_creator2,https://picsum.photos/400/400,2025-01-19",
+  "csv_data": "creator_name,cover_url,updated_at\ntest_creator,https://picsum.photos/300/300,2025-01-19\ntest_creator2,https://picsum.photos/400/400,2025-01-19",
   "processing_config": {
     "rows": 5,
     "cols": 7,

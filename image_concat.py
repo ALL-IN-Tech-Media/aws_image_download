@@ -334,7 +334,7 @@ def process_csv_to_collages(csv_path: str, output_dir: str, group_by_creator: bo
             for row in reader:
                 creator_name = row.get('creator_name', 'unknown').strip()
                 cover_url = row.get('cover_url', '').strip()
-                created_at = row.get('created_at', '')
+                updated_at = row.get('updated_at', '')
                 
                 if cover_url and not cover_url.startswith('ERROR:'):
                     if creator_name not in data_by_creator:
@@ -342,7 +342,7 @@ def process_csv_to_collages(csv_path: str, output_dir: str, group_by_creator: bo
                     
                     data_by_creator[creator_name].append({
                         'url': cover_url,
-                        'created_at': created_at
+                        'updated_at': updated_at
                     })
                     total_urls += 1
         
